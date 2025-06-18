@@ -1,0 +1,33 @@
+# Ignorar datos y modelos
+data/
+models/
+
+# Ignorar archivos de entorno
+.env
+
+# Ignorar archivos de Jupyter checkpoints
+**/.ipynb_checkpoints/
+
+# Ignorar archivos temporales de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Ignorar archivos de configuración de VSCode (opcional)
+.vscode/
+
+# Entorno virtual de Python
+.venv/
+
+# Archivos de backup o temporales
+*~
+*.bak
+*.swp
+
+# Backup de configuración
+pyproject.toml.backup

@@ -4,35 +4,28 @@ from typing import Tuple
 import pandas as pd
 
 
-def get_default_cutoff_date() -> pd.Timestamp:
-    """Returns a default cutoff date for splitting the data into train and test sets.
-    Uses January 1st, 2023 as the cutoff date, which splits the data into:
-    - Training: 2022 data
-    - Test: 2023 data
-    """
-    return pd.Timestamp('2023-01-01')
-
-
 def train_test_split(
     df: pd.DataFrame,
-    cutoff_date: datetime = None,
-    target_column_name: str = 'rides',
+    cutoff_date: datetime,
+    target_column_name: str,
 ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
-    """Split the data into training and test sets based on a cutoff date.
-    
-    Args:
-        df: DataFrame containing the data
-        cutoff_date: Date to split the data into train and test sets. If None, uses January 1st, 2023
-        target_column_name: Name of the target column (default: 'rides')
-    
-    Returns:
-        Tuple containing X_train, y_train, X_test, y_test
     """
-    if cutoff_date is None:
-        cutoff_date = get_default_cutoff_date()
+    Split the data into training and test sets.
+    """
+    # Ensure pickup_hour is datetime format
+    if df['pickup_hour'].dtype == 'object':
+        # If pickup_hour is string, convert to datetime
+        df = df.copy()
+        df['pickup_hour'] = pd.to_datetime(df['pickup_hour'])
     
-    # Convert pickup_hour to datetime if it's not already
-    df['pickup_hour'] = pd.to_datetime(df['pickup_hour'])
+    # Ensure cutoff_date is timezone-aware if pickup_hour has timezone
+    if hasattr(df['pickup_hour'].iloc[0], 'tz') and df['pickup_hour'].iloc[0].tz is not None:
+        # pickup_hour has timezone, ensure cutoff_date has the same timezone
+        if cutoff_date.tzinfo is None:
+            cutoff_date = pd.Timestamp(cutoff_date, tz=df['pickup_hour'].iloc[0].tz)
+    elif hasattr(cutoff_date, 'tz') and cutoff_date.tz is not None:
+        # cutoff_date has timezone but pickup_hour doesn't, remove timezone from cutoff_date
+        cutoff_date = cutoff_date.tz_localize(None)
     
     train_data = df[df.pickup_hour < cutoff_date].reset_index(drop=True)
     test_data = df[df.pickup_hour >= cutoff_date].reset_index(drop=True)

@@ -1,3 +1,6 @@
+# Configurar entorno antes de cualquier import
+#exec(open('src/setup_env.py').read())
+
 import zipfile
 from datetime import datetime
 
@@ -5,7 +8,7 @@ import requests
 import numpy as np
 import pandas as pd
 
-from src.inference import load_batch_of_features_from_store, load_model_from_registry, get_model_predictions
+from src.inference import load_batch_of_features_from_store, load_batch_of_features_from_store_v2, load_model_from_registry, get_model_predictions
 
 
 import streamlit as st
@@ -77,7 +80,7 @@ def _load_batch_of_features_from_store(current_date: pd.Timestamp) -> pd.DataFra
             - `pickup_hour`
             - `pickup_location_id`
     """
-    return load_batch_of_features_from_store(current_date)
+    return load_batch_of_features_from_store_v2(current_date)
 
 
 with st.spinner(text="Downloading shape file to plot taxi zones"):
@@ -87,7 +90,7 @@ with st.spinner(text="Downloading shape file to plot taxi zones"):
 
 
 with st.spinner(text="Fetching model predictions from the store"):
-    features = load_batch_of_features_from_store(current_date)
+    features = load_batch_of_features_from_store_v2(current_date)
     st.sidebar.write('✅ Model predictions arrived')
     progress_bar.progress(2/N_STEPS)
 
@@ -179,7 +182,7 @@ with st.spinner(text="Plotting time-series data"):
    
     predictions_df = df
 
-    row_indices = np.argsort(predictions_df['predicted_demand'].values)[::-1]
+    row_indices = np.argsort(np.array(predictions_df['predicted_demand'].values))[::-1]
     n_to_plot = 10
 
     # plot each time-series with the prediction
@@ -199,7 +202,7 @@ with st.spinner(text="Plotting time-series data"):
         fig = plot_one_sample(
             example_id=row_id,
             features=features_df,
-            targets=predictions_df['predicted_demand'],
+            targets=pd.Series(predictions_df['predicted_demand']),
             predictions=pd.Series(predictions_df['predicted_demand']),
             display_title=False,
         )

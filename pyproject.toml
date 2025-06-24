@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "taxi-demand-predictor"
+name = "my-version-taxi-demand-predictor"
 version = "0.1.0"
 description = ""
 authors = ["AlexLopez-ia <alex@optimizalo.es>"]

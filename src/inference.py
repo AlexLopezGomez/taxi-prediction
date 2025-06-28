@@ -63,6 +63,18 @@ def load_batch_of_features_from_store(
     # Obtener la última fecha disponible en el feature store
     ts_data_full = feature_view.get_batch_data(query_service=True)
     max_date = ts_data_full['pickup_hour'].max()
+    
+    # Resolver problemas de timezone awareness entre current_date y max_date
+    if hasattr(max_date, 'tz') and max_date.tz is not None:
+        # max_date tiene timezone, asegurar que current_date tenga el mismo timezone
+        if hasattr(current_date, 'tz') and current_date.tz is None:
+            current_date = pd.Timestamp(current_date, tz=max_date.tz)
+        elif not hasattr(current_date, 'tz') or current_date.tzinfo is None:
+            current_date = pd.Timestamp(current_date, tz=max_date.tz)
+    elif hasattr(current_date, 'tz') and current_date.tz is not None:
+        # current_date tiene timezone pero max_date no, quitar timezone de current_date
+        current_date = current_date.tz_localize(None)
+    
     if current_date > max_date:
         print(f"[INFO] La fecha pedida ({current_date}) está fuera del rango disponible. Usando la última fecha disponible: {max_date}.")
         current_date = max_date
@@ -70,6 +82,21 @@ def load_batch_of_features_from_store(
     # fetch data from the feature store
     fetch_data_from = current_date - timedelta(days=28)
     fetch_data_to = current_date - timedelta(hours=1)
+    
+    # Asegurar que las fechas calculadas tengan el mismo timezone que max_date
+    if hasattr(max_date, 'tz') and max_date.tz is not None:
+        if hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=max_date.tz)
+        elif not hasattr(fetch_data_from, 'tz') or fetch_data_from.tzinfo is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=max_date.tz)
+            
+        if hasattr(fetch_data_to, 'tz') and fetch_data_to.tz is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=max_date.tz)
+        elif not hasattr(fetch_data_to, 'tz') or fetch_data_to.tzinfo is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=max_date.tz)
+    elif hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is not None:
+        fetch_data_from = fetch_data_from.tz_localize(None)
+        fetch_data_to = fetch_data_to.tz_localize(None)
 
     # add plus minus margin to make sure we do not drop any observation
     ts_data = feature_view.get_batch_data(
@@ -81,6 +108,22 @@ def load_batch_of_features_from_store(
     # filter data to the time period we are interested in
     pickup_hour_from = fetch_data_from
     pickup_hour_to = fetch_data_to
+    
+    # Asegurar consistencia de timezone en el filtrado
+    if hasattr(ts_data['pickup_hour'].iloc[0], 'tz') and ts_data['pickup_hour'].iloc[0].tz is not None:
+        if hasattr(pickup_hour_from, 'tz') and pickup_hour_from.tz is None:
+            pickup_hour_from = pd.Timestamp(pickup_hour_from, tz=ts_data['pickup_hour'].iloc[0].tz)
+        elif not hasattr(pickup_hour_from, 'tz') or pickup_hour_from.tzinfo is None:
+            pickup_hour_from = pd.Timestamp(pickup_hour_from, tz=ts_data['pickup_hour'].iloc[0].tz)
+            
+        if hasattr(pickup_hour_to, 'tz') and pickup_hour_to.tz is None:
+            pickup_hour_to = pd.Timestamp(pickup_hour_to, tz=ts_data['pickup_hour'].iloc[0].tz)
+        elif not hasattr(pickup_hour_to, 'tz') or pickup_hour_to.tzinfo is None:
+            pickup_hour_to = pd.Timestamp(pickup_hour_to, tz=ts_data['pickup_hour'].iloc[0].tz)
+    elif hasattr(pickup_hour_from, 'tz') and pickup_hour_from.tz is not None:
+        pickup_hour_from = pickup_hour_from.tz_localize(None)
+        pickup_hour_to = pickup_hour_to.tz_localize(None)
+    
     ts_data = ts_data[ts_data['pickup_hour'].between(pickup_hour_from, pickup_hour_to)]
     # sort data by location and time
     ts_data.sort_values(by=['pickup_location_id', 'pickup_hour'], inplace=True)
@@ -144,6 +187,18 @@ def load_batch_of_features_from_store_v2(
     
     print(f"[INFO] Rango de datos disponibles: {min_date} a {max_date}")
     
+    # Resolver problemas de timezone awareness entre current_date y max_date/min_date
+    # Usar la misma lógica que en data_split.py
+    if hasattr(max_date, 'tz') and max_date.tz is not None:
+        # max_date tiene timezone, asegurar que current_date tenga el mismo timezone
+        if hasattr(current_date, 'tz') and current_date.tz is None:
+            current_date = pd.Timestamp(current_date, tz=max_date.tz)
+        elif not hasattr(current_date, 'tz') or current_date.tzinfo is None:
+            current_date = pd.Timestamp(current_date, tz=max_date.tz)
+    elif hasattr(current_date, 'tz') and current_date.tz is not None:
+        # current_date tiene timezone pero max_date no, quitar timezone de current_date
+        current_date = current_date.tz_localize(None)
+    
     # Ajustar current_date si está fuera del rango disponible
     if current_date > max_date:
         print(f"[INFO] La fecha pedida ({current_date}) está fuera del rango disponible. Usando la última fecha disponible: {max_date}.")
@@ -152,6 +207,23 @@ def load_batch_of_features_from_store_v2(
     # Calcular el rango de fechas que necesitamos
     ideal_fetch_from = current_date - timedelta(days=28)
     fetch_data_to = current_date - timedelta(hours=1)
+    
+    # Asegurar que ideal_fetch_from y fetch_data_to tengan el mismo timezone que min_date/max_date
+    if hasattr(min_date, 'tz') and min_date.tz is not None:
+        # min_date tiene timezone, asegurar que las fechas calculadas tengan el mismo timezone
+        if hasattr(ideal_fetch_from, 'tz') and ideal_fetch_from.tz is None:
+            ideal_fetch_from = pd.Timestamp(ideal_fetch_from, tz=min_date.tz)
+        elif not hasattr(ideal_fetch_from, 'tz') or ideal_fetch_from.tzinfo is None:
+            ideal_fetch_from = pd.Timestamp(ideal_fetch_from, tz=min_date.tz)
+        
+        if hasattr(fetch_data_to, 'tz') and fetch_data_to.tz is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=min_date.tz)
+        elif not hasattr(fetch_data_to, 'tz') or fetch_data_to.tzinfo is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=min_date.tz)
+    elif hasattr(ideal_fetch_from, 'tz') and ideal_fetch_from.tz is not None:
+        # ideal_fetch_from tiene timezone pero min_date no, quitar timezone
+        ideal_fetch_from = ideal_fetch_from.tz_localize(None)
+        fetch_data_to = fetch_data_to.tz_localize(None)
     
     # Verificar si tenemos suficientes datos históricos
     if ideal_fetch_from < min_date:
@@ -174,6 +246,15 @@ def load_batch_of_features_from_store_v2(
             print(f"[INFO] Usando los últimos {days_to_use} días de datos.")
     else:
         fetch_data_from = ideal_fetch_from
+    
+    # Asegurar que fetch_data_from tenga el mismo timezone que max_date/min_date
+    if hasattr(max_date, 'tz') and max_date.tz is not None:
+        if hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=max_date.tz)
+        elif not hasattr(fetch_data_from, 'tz') or fetch_data_from.tzinfo is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=max_date.tz)
+    elif hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is not None:
+        fetch_data_from = fetch_data_from.tz_localize(None)
 
     # Obtener datos del feature store con margen
     ts_data = feature_view.get_batch_data(
@@ -181,6 +262,21 @@ def load_batch_of_features_from_store_v2(
         end_time=fetch_data_to + timedelta(hours=1),
         query_service=True
     )
+    
+    # Asegurar consistencia de timezone en el filtrado
+    if len(ts_data) > 0 and hasattr(ts_data['pickup_hour'].iloc[0], 'tz') and ts_data['pickup_hour'].iloc[0].tz is not None:
+        if hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=ts_data['pickup_hour'].iloc[0].tz)
+        elif not hasattr(fetch_data_from, 'tz') or fetch_data_from.tzinfo is None:
+            fetch_data_from = pd.Timestamp(fetch_data_from, tz=ts_data['pickup_hour'].iloc[0].tz)
+            
+        if hasattr(fetch_data_to, 'tz') and fetch_data_to.tz is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=ts_data['pickup_hour'].iloc[0].tz)
+        elif not hasattr(fetch_data_to, 'tz') or fetch_data_to.tzinfo is None:
+            fetch_data_to = pd.Timestamp(fetch_data_to, tz=ts_data['pickup_hour'].iloc[0].tz)
+    elif len(ts_data) > 0 and hasattr(fetch_data_from, 'tz') and fetch_data_from.tz is not None:
+        fetch_data_from = fetch_data_from.tz_localize(None)
+        fetch_data_to = fetch_data_to.tz_localize(None)
     
     # Filtrar al período exacto que necesitamos
     ts_data = ts_data[ts_data['pickup_hour'].between(fetch_data_from, fetch_data_to)]

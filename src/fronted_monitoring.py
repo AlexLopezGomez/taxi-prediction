@@ -54,8 +54,8 @@ with st.spinner(text="Fetching model predictions and actual values from the stor
     progress_bar.progress(1/N_STEPS)
     
     # Debug: Show DataFrame structure
-    st.write(f"DataFrame shape: {monitoring_df.shape}")
-    st.write(f"Available columns: {monitoring_df.columns.tolist()}")
+    #st.write(f"DataFrame shape: {monitoring_df.shape}")
+    #st.write(f"Available columns: {monitoring_df.columns.tolist()}")
     
     # Check if we have the required columns
     if 'predicted_demand' not in monitoring_df.columns:

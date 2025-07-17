@@ -200,7 +200,6 @@ make features
 
 - **One-time operation**: `make backfill` only needs to be run once unless you want to refresh all historical data
 - **Data dependencies**: All ML operations (training, inference) depend on the historical data populated by backfill
-- **Standard practice**: This workflow is normal for time-series ML systems in production
 
 ## 🙏 Acknowledgments
 

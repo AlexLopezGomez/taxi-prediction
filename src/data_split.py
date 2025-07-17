@@ -12,6 +12,10 @@ def train_test_split(
     """
     Split the data into training and test sets.
     """
+    # Check if dataframe is empty
+    if df.empty:
+        raise ValueError("DataFrame is empty. Cannot perform train/test split. Please check if the feature view contains data.")
+    
     # Ensure pickup_hour is datetime format
     if df['pickup_hour'].dtype == 'object':
         # If pickup_hour is string, convert to datetime
@@ -19,7 +23,7 @@ def train_test_split(
         df['pickup_hour'] = pd.to_datetime(df['pickup_hour'])
     
     # Ensure cutoff_date is timezone-aware if pickup_hour has timezone
-    if hasattr(df['pickup_hour'].iloc[0], 'tz') and df['pickup_hour'].iloc[0].tz is not None:
+    if len(df) > 0 and hasattr(df['pickup_hour'].iloc[0], 'tz') and df['pickup_hour'].iloc[0].tz is not None:
         # pickup_hour has timezone, ensure cutoff_date has the same timezone
         if cutoff_date.tzinfo is None:
             cutoff_date = pd.Timestamp(cutoff_date, tz=df['pickup_hour'].iloc[0].tz)

@@ -192,11 +192,35 @@ def train(
     experiment.log_dataset_hash(features_and_target)
 
     # split the data into training and validation sets
-    cutoff_date = pd.to_datetime(date.today() - timedelta(days=28), utc=True)
+    # Get the actual date range from the data
+    min_date = features_and_target['pickup_hour'].min()
+    max_date = features_and_target['pickup_hour'].max()
+    
+    # Calculate data span in days
+    data_span_days = (max_date - min_date).days
+    
+    # Use dynamic cutoff based on available data
+    if data_span_days <= 1:
+        # If data span is 1 day or less, use 80% for training
+        cutoff_date = min_date + (max_date - min_date) * 0.8
+    else:
+        # If more than 1 day, use last 20% for testing
+        cutoff_date = max_date - pd.Timedelta(days=max(1, data_span_days * 0.2))
+    
+    logger.info(f'Data range: {min_date} to {max_date} (span: {data_span_days} days)')
     logger.info(f'Splitting data into training and test sets with {cutoff_date=}')
+    
     X_train, y_train, X_test, y_test = split_data(
         features_and_target, cutoff_date=cutoff_date
     )
+    
+    # Validate that we have enough data for training
+    if len(X_train) < 10:
+        raise ValueError(f"Insufficient training data: {len(X_train)} samples. Need at least 10 samples for training.")
+    
+    if len(X_test) < 1:
+        raise ValueError(f"Insufficient test data: {len(X_test)} samples. Need at least 1 sample for testing.")
+    
     experiment.log_parameters(
         {
             'X_train_shape': X_train.shape,

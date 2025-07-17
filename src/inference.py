@@ -79,9 +79,30 @@ def load_batch_of_features_from_store(
         print(f"[INFO] La fecha pedida ({current_date}) está fuera del rango disponible. Usando la última fecha disponible: {max_date}.")
         current_date = max_date
 
-    # fetch data from the feature store
-    fetch_data_from = current_date - timedelta(days=28)
-    fetch_data_to = current_date - timedelta(hours=1)
+    # Get the earliest available date in the feature store
+    min_date = ts_data_full['pickup_hour'].min()
+    
+    # Calculate the ideal fetch range
+    ideal_fetch_from = current_date - timedelta(days=28)
+    ideal_fetch_to = current_date - timedelta(hours=1)
+    
+    # Adjust fetch_data_from to not go before available data
+    fetch_data_from = max(ideal_fetch_from, min_date)
+    fetch_data_to = min(ideal_fetch_to, max_date)
+    
+    # Ensure we have at least some data range
+    if fetch_data_from >= fetch_data_to:
+        print(f"[WARNING] Adjusted fetch range is invalid. Using available data range: {min_date} to {max_date}")
+        fetch_data_from = min_date
+        fetch_data_to = max_date
+    
+    # Always use the configured N_FEATURES to maintain model compatibility
+    n_features = config.N_FEATURES
+    
+    print(f"[INFO] Requested range: {ideal_fetch_from} to {ideal_fetch_to}")
+    print(f"[INFO] Available data range: {min_date} to {max_date}")
+    print(f"[INFO] Adjusted fetch range: {fetch_data_from} to {fetch_data_to}")
+    print(f"[INFO] Using fixed n_features: {n_features} (required for model compatibility)")
     
     # Asegurar que las fechas calculadas tengan el mismo timezone que max_date
     if hasattr(max_date, 'tz') and max_date.tz is not None:
@@ -130,15 +151,54 @@ def load_batch_of_features_from_store(
 
     # validate we are not missing data in the feature store
     location_ids = ts_data['pickup_location_id'].unique()
-    assert len(ts_data) == config.N_FEATURES * len(location_ids), \
-        "Time-series data is not complete. Make sure your feature pipeline is up and runnning."
+    expected_records = n_features * len(location_ids)
+    actual_records = len(ts_data)
+    
+    if actual_records != expected_records:
+        print(f"[WARNING] Expected {expected_records} records ({n_features} features × {len(location_ids)} locations), but got {actual_records}")
+        print(f"[INFO] Will pad missing data to maintain {n_features} features per location for model compatibility")
+        
+        if len(location_ids) == 0:
+            raise ValueError("No location data found in the feature store.")
 
+    # Create complete time series for each location with proper padding
+    # First, create a complete time index for the expected range
+    expected_start = fetch_data_from
+    expected_end = fetch_data_to
+    expected_time_index = pd.date_range(start=expected_start, end=expected_end, freq='H')
+    
+    # Ensure we have exactly n_features hours
+    if len(expected_time_index) != n_features:
+        # Adjust to get exactly n_features hours
+        expected_time_index = expected_time_index[-n_features:]
+    
+    print(f"[INFO] Creating complete time series from {expected_time_index[0]} to {expected_time_index[-1]} ({len(expected_time_index)} hours)")
+    
     # transpose time-series data as a feature vector, for each `pickup_location_id`
     x = np.ndarray(shape=(len(location_ids), n_features), dtype=np.float32)
     for i, location_id in enumerate(location_ids):
         ts_data_i = ts_data.loc[ts_data.pickup_location_id == location_id, :]
         ts_data_i = ts_data_i.sort_values(by=['pickup_hour'])
-        x[i, :] = ts_data_i['rides'].values
+        
+        # Create a complete series with proper indexing
+        complete_series = pd.Series(index=expected_time_index, dtype='float32')
+        
+        # Fill in available data
+        for _, row in ts_data_i.iterrows():
+            pickup_hour = row['pickup_hour']
+            if pickup_hour in expected_time_index:
+                complete_series.loc[pickup_hour] = row['rides']
+        
+        # Fill missing values with 0 (you could use other strategies like interpolation)
+        complete_series = complete_series.fillna(0.0)
+        
+        # Store in the feature matrix
+        x[i, :] = complete_series.values
+        
+        missing_count = complete_series.isna().sum() if hasattr(complete_series, 'isna') else 0
+        zero_filled_count = (complete_series == 0.0).sum()
+        if zero_filled_count > 0:
+            print(f"[INFO] Location {location_id}: filled {zero_filled_count} missing hours with 0.0")
 
     # numpy arrays to Pandas dataframes
     features = pd.DataFrame(

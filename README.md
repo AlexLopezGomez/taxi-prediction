@@ -89,7 +89,20 @@ NYC Taxi Data → Feature Engineering → ML Model → Predictions → Dashboard
 
 ### Usage
 
-The project includes a comprehensive Makefile for easy execution:
+#### 🚨 First Time Setup (Required)
+
+**Before running any other commands**, you must populate the feature store with historical data:
+
+```bash
+# ⚠️ REQUIRED: Backfill historical data (run once)
+make backfill
+```
+
+> **Why is this needed?** The ML model requires 28 days (672 hours) of historical data for training and inference. This is standard practice in time-series ML systems.
+
+#### 🔄 Regular Workflow
+
+After the initial backfill, use these commands for regular operations:
 
 ```bash
 # Generate features and store in feature store
@@ -106,10 +119,16 @@ make frontend-app
 
 # Launch monitoring dashboard
 make monitoring-app
-
-# Backfill historical data
-make backfill
 ```
+
+#### 📋 Complete Setup Checklist
+
+1. ✅ `make init` - Install dependencies
+2. ✅ Configure `.env` file
+3. ✅ `make backfill` - **Essential first step**
+4. ✅ `make features` - Update with recent data
+5. ✅ `make training` - Train the model
+6. ✅ `make inference` - Generate predictions
 
 ## 🔍 Project Structure
 
@@ -156,6 +175,33 @@ This project demonstrates:
 - MLOps best practices
 - Geospatial data visualization
 
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**❌ Empty training set error**
+```bash
+# Solution: Run backfill first
+make backfill
+```
+
+**❌ Inference fails with data errors**
+```bash
+# Solution: Ensure backfill has been executed
+make backfill
+make features
+```
+
+**❌ Missing historical data**
+- **Cause**: Backfill step was skipped
+- **Solution**: Always run `make backfill` before other commands
+
+### Important Notes
+
+- **One-time operation**: `make backfill` only needs to be run once unless you want to refresh all historical data
+- **Data dependencies**: All ML operations (training, inference) depend on the historical data populated by backfill
+- **Standard practice**: This workflow is normal for time-series ML systems in production
+
 ## 🙏 Acknowledgments
 
 This project is based on the excellent tutorial by [Pau Labarta Bajo](https://www.linkedin.com/in/pau-labarta-bajo-4432074b). Special thanks for providing the foundational architecture and approach for this taxi demand prediction system.
@@ -170,4 +216,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-**Made with ❤️ for better urban transportation**

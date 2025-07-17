@@ -53,7 +53,15 @@ def inference(
 
     # add `pickup_hour` and `pickup_ts` columns
     predictions['pickup_hour'] = current_date
-    predictions['pickup_ts'] = predictions['pickup_hour'].astype(int) // 10**6
+    # Convert pickup_hour to Unix timestamp in milliseconds for pickup_ts
+    predictions['pickup_ts'] = pd.to_datetime(predictions['pickup_hour']).astype('int64') // 10**6
+    
+    # Rename predicted_demand to predictions to match feature store schema
+    if 'predicted_demand' in predictions.columns:
+        predictions = predictions.rename(columns={'predicted_demand': 'predictions'})
+    
+    # Ensure pickup_ts is the correct type (timestamp converted to proper format)
+    predictions['pickup_ts'] = pd.to_datetime(predictions['pickup_ts'], unit='ms')
 
     logger.info('Saving predictions to the feature store')
     save_predictions_to_feature_store(predictions)
